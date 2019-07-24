@@ -43,7 +43,6 @@
 				// Gets the default parent for inserting new cells. This
 				// is normally the first child of the root (ie. layer 0).
 				var parent = graph.getDefaultParent();
-								
 				// Adds cells to the model in a single step
 				graph.getModel().beginUpdate();
 				try
@@ -89,7 +88,6 @@
 		{
 			var obj = JSON.parse(mxUtils.getTextContent(node));
 			obj.constructor = CustomData;
-			
 			return obj;
 		};
 

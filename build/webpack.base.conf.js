@@ -69,7 +69,7 @@ module.exports = {
       },
       {
         test: /mxClient\.js$/,
-        loader: 'exports-loader?mxClient,mxGraphModel,mxActor,mxShape,mxEventObject,mxGraph,mxPrintPreview,mxEventSource,mxRectangle,mxVertexHandler,mxMouseEvent,mxGraphView,mxImage,mxGeometry,mxRubberband,mxKeyHandler,mxDragSource,mxGraphModel,mxEvent,mxUtils,mxWindow,mxEvent,mxCodec,mxCell,mxConstants,mxPoint,mxGraphHandler,mxCylinder,mxCellRenderer,mxEvent,mxUndoManager'
+        loader: 'exports-loader?mxClient,mxGraphModel,mxActor,mxShape,mxEventObject,mxGraph,mxPrintPreview,mxEventSource,mxRectangle,mxVertexHandler,mxMouseEvent,mxGraphView,mxImage,mxGeometry,mxRubberband,mxKeyHandler,mxDragSource,mxGraphModel,mxEvent,mxUtils,mxWindow,mxToolbar,mxEvent,mxCodec,mxCell,mxConstants,mxPoint,mxConnectionHandler,mxGraphHandler,mxCylinder,mxCellRenderer,mxEvent,mxUndoManager'
       },
       {
         test: /\.(woff2?|eot|ttf|otf)(\?.*)?$/,
