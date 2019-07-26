@@ -9,9 +9,16 @@
 
       </div>
       <div class="rightEdit">
+        <p>
+          <button @click='undo'>撤销操作（返回上一步）</button>
+        </p>
+        <p>
+          <button @click='redo'>还原操作（返回下一步）</button>
+        </p>
+
         <!-- 带样式的图形框 -->
         <p>
-          <button @click='editColor'>修改样式</button>
+          <button @click='editColor'>创建有样式的窗口</button>
         </p>
 
         <p>
@@ -22,6 +29,14 @@
         <p>
           <button @click='exportXml'>导出XML</button>
         </p>
+
+        <p>
+          <button @click='deleteLine'>删除</button>
+        </p>
+
+        <p>
+          <button @click='dynamicLoadXml'>动态加载图形</button>
+        </p>
       </div>
     </div>
   </div>
@@ -31,6 +46,7 @@
   import myClass from '@/util'
   import 'mxgraph/javascript/src/css/common.css'
   import 'mxgraph/javascript/src/css/explorer.css'
+  import dqKeys from '@/util/keyCodeComponent'
 
   import {
     mxGraph,
@@ -40,9 +56,15 @@
     mxGraphModel,
     mxRectangle,
     mxUtils,
+    mxUndoManager,
+    mxFastOrganicLayout,
     mxPoint,
     mxEvent,
+    mxStencil,
     mxCodec,
+    mxEditor,
+    mxForm,
+    mxConstants,
     mxImage,
     mxConnectionHandler,
     mxGeometry,
@@ -55,61 +77,138 @@
     data() {
       return {
         msg: 'vue-mxgraph',
-        graph: ''
+        graph: '',
+        undoManager: ''
       }
     },
     mounted() {
       let myCla = new myClass(123)
       myCla.names = '我是存值函数'
 
-      // 连接中间线
-      mxConnectionHandler.prototype.connectImage = new mxImage(require('../assets/connector.gif'), 16, 16);
-
-      // 在绘制区域，禁止鼠标右键出现菜单栏
-      mxEvent.disableContextMenu(this.$refs.graph_container);
-
-      // 兼容多平台模型
-      var model = new mxGraphModel();
-      // 创建图形
-      var graph = new mxGraph(this.$refs.graph_container, model);
-
-      // 禁用选中图标进行连线
-      // graph.panningHandler.ignoreCell = true;
-
-      // 支持无限拖动
-
-      graph.setPanning(true);
-
-      // 目标支持宽度
-      graph.scrollTileSize = new mxRectangle(0, 0, document.body.scrollWidth, 800);
-      this.scrollInfinite(graph)
-
-      graph.dropEnabled = true;
-      this.graph = graph;
-      graph.setConnectable(true);
-      // 控制鼠标多选
-      var rubberband = new mxRubberband(graph);
-
-      // 边缘样式
-      graph.getStylesheet().getDefaultEdgeStyle()['edgeStyle'] = 'orthogonalEdgeStyle';
-
-      // 获取默认组件
-      var parent = graph.getDefaultParent();
-
-      // 开启更新事务
-      graph.getModel().beginUpdate();
-      try {
-        var v1 = graph.insertVertex(parent, null, 'Hello,', 20, 20, 80, 30);
-        var v2 = graph.insertVertex(parent, null, 'World!', 200, 150, 80, 30);
-        var e1 = graph.insertEdge(parent, null, '', v1, v2);
-      } finally {
-        // 结束更新事务
-        graph.getModel().endUpdate();
-      }
-
+      this.init();
+      // 创建状态栏
       this.createToolbar();
     },
     methods: {
+      init() {
+        // 初始化图形渲染
+
+        mxConstants.SHADOWCOLOR = '#C0C0C0';
+        // 连接中间线
+        mxConnectionHandler.prototype.connectImage = new mxImage(require('../assets/connector.gif'), 16, 16);
+
+        // 在绘制区域，禁止鼠标右键出现菜单栏
+        mxEvent.disableContextMenu(this.$refs.graph_container);
+
+        // 兼容多平台模型
+        var model = new mxGraphModel();
+        // 创建图形
+        var graph = new mxGraph(this.$refs.graph_container, model);
+
+        // 禁用选中图标进行连线
+        // graph.panningHandler.ignoreCell = true;
+
+        // 区域边框
+        // graph.pageBreaksVisible = true;
+        // graph.pageFormat.src = require('../assets/grid.gif')
+
+        // 禁止在图标上进行窗口拖动，左键选中，右键拖动窗口
+        // graph.setCellsMovable(false);
+        graph.setAutoSizeCells(true);
+        // 支持无限拖动
+        graph.setPanning(true);
+
+
+        // 目标支持宽度
+        graph.scrollTileSize = new mxRectangle(0, 0, document.body.scrollWidth, 800);
+        this.scrollInfinite(graph)
+        graph.dropEnabled = true;
+        this.graph = graph;
+        graph.setConnectable(true);
+        // 控制鼠标多选
+        var rubberband = new mxRubberband(graph);
+
+        // 边缘样式
+        graph.getStylesheet().getDefaultEdgeStyle()['edgeStyle'] = 'orthogonalEdgeStyle';
+
+        // 获取默认组件
+        var parent = graph.getDefaultParent();
+
+        // 开启更新事务
+        graph.getModel().beginUpdate();
+        try {
+          var v1 = graph.insertVertex(parent, null, 'Hello,', 20, 20, 80, 30);
+          var v2 = graph.insertVertex(parent, null, 'World!', 200, 150, 80, 30);
+          var e1 = graph.insertEdge(parent, null, '', v1, v2);
+        } finally {
+          // 结束更新事务
+          graph.getModel().endUpdate();
+        }
+
+
+        // 返回上一步 begin
+        var undoManager = new mxUndoManager();
+        this.undoManager = undoManager;
+
+        var listener = function (sender, evt) {
+          undoManager.undoableEditHappened(evt.getProperty('edit'));
+        };
+        this.graph.getModel().addListener(mxEvent.UNDO, listener);
+        this.graph.getView().addListener(mxEvent.UNDO, listener);
+        // 返回上一步 end
+
+        // 删除按键监控 begin
+        document.onkeydown = () => {
+          var oEvent = window.event;
+          if (oEvent.keyCode === 46) {
+            this.deleteLine()
+          }
+        }
+        // 删除按键监控 end
+
+        // 返回上一步组合按键 begin
+        dqKeys({
+          'control': 17,
+          'z': 90
+        }, false, () => {
+          this.undo();
+        }).listenkeys();
+        // 返回上一步组合按键 end
+
+        var editor = new mxEditor();
+        // editor.setGraphContainer(this.graph);
+
+        // var config = mxUtils.load(
+        //   '../assets/keyhandler-minimal.xml').
+        // getDocumentElement();
+        // editor.configure(config);
+
+        // editor.layoutSwimlanes = true;
+
+        // Installs a popupmenu handler using local function (see below).
+        graph.popupMenuHandler.factoryMethod = (menu, cell, evt) => {
+          console.log('右击事件');
+          this.createPopupMenu(editor, this.graph, menu, cell, evt);
+        };
+
+        // 点击事件
+        graph.addListener(mxEvent.CLICK, function (sender, evt) {
+          let getId = evt['properties']['cell'] ? evt['properties']['cell']['id'] : null;
+          if (!getId) {
+            return
+          }
+          console.log(getId);
+        });
+        // Defines a new export action
+        editor.addAction('properties', (editor, cell) => {
+          console.log('顶部菜单');
+          if (cell == null) {
+            cell = this.graph.getSelectionCell();
+          }
+
+          this.showProperties(this.graph, cell);
+        });
+      },
       editColor() {
         // 创建图形
 
@@ -138,6 +237,103 @@
           graph.getModel().endUpdate();
         }
       },
+      createPopupMenu(editor, graph, menu, cell, evt) {
+        // 右键单击创建窗体
+
+        if (cell != null) {
+          if (graph.isHtmlLabel(cell)) {
+            menu.addItem('菜单栏1', require('../assets/rectangle.gif'), function () {
+              editor.execute('properties', cell);
+            });
+
+            menu.addSeparator();
+          }
+
+          menu.addItem('菜单栏1', require('../assets/rectangle.gif'), function () {
+            editor.execute('properties', cell);
+          });
+          menu.addItem('删除', require('../assets/delete2.png'), () => {
+            this.deleteLine()
+          });
+
+          menu.addSeparator();
+        }
+
+        // 场景页面数据
+        menu.addItem('场景页面', require('../assets/connector.gif'), function () {
+          editor.execute('showSql', cell);
+        });
+      },
+      dynamicLoadXml() {
+        // 动态加载图形
+        let graph = this.graph;
+        graph.getModel().beginUpdate();
+        try {
+          var req = mxUtils.load('../assets/stencils.xml');
+          var root = req.getDocumentElement();
+          var dec = new mxCodec(root);
+          dec.decode(root, graph.getModel());
+
+        } finally {
+          graph.getModel().endUpdate();
+        }
+      },
+      showProperties(graph, cell) {
+        // 右键展示表格数据
+        // Creates a form for the user object inside
+        // the cell
+        console.log(cell);
+        var form = new mxForm('properties');
+        // Adds a field for the columnname
+        var nameField = form.addText('Name', cell.value);
+        // var typeField = form.addText('Type', cell.value.type);
+
+        // var primaryKeyField = form.addCheckbox('Primary Key', cell.value.primaryKey);
+        // var autoIncrementField = form.addCheckbox('Auto Increment', cell.value.autoIncrement);
+        // var notNullField = form.addCheckbox('Not Null', cell.value.notNull);
+        // var uniqueField = form.addCheckbox('Unique', cell.value.unique);
+
+        // var defaultField = form.addText('Default', cell.value.defaultValue || '');
+        // var useDefaultField = form.addCheckbox('Use Default', (cell.value.defaultValue != null));
+
+        var wnd = null;
+
+        // Defines the function to be executed when the
+        // OK button is pressed in the dialog
+        var okFunction = function () {
+          var clone = cell.value.clone();
+
+          clone.name = nameField.value;
+          clone.type = typeField.value;
+
+          // if (useDefaultField.checked) {
+          //   clone.defaultValue = defaultField.value;
+          // } else {
+          //   clone.defaultValue = null;
+          // }
+
+          // clone.primaryKey = primaryKeyField.checked;
+          // clone.autoIncrement = autoIncrementField.checked;
+          // clone.notNull = notNullField.checked;
+          // clone.unique = uniqueField.checked;
+
+          // graph.model.setValue(cell, clone);
+
+          wnd.destroy();
+        }
+
+        // Defines the function to be executed when the
+        // Cancel button is pressed in the dialog
+        var cancelFunction = function () {
+          wnd.destroy();
+        }
+        form.addButtons(okFunction, cancelFunction);
+
+        var parent = graph.model.getParent(cell);
+        var name = parent.value + '.' + cell.value;
+        console.log(form.table);
+
+      },
       zoomIn() {
         // 图形放大
         this.graph.zoomIn()
@@ -153,6 +349,17 @@
         var node = encoder.encode(this.graph.getModel());
         console.log(mxUtils.getXml(node));
         mxUtils.popup(mxUtils.getXml(node), true);
+      },
+      deleteLine() {
+        // 删除选中事务
+        this.graph.removeCells()
+      },
+      undo(undoManager) {
+        // 返回上一步
+        this.undoManager.undo();
+      },
+      redo() {
+        this.undoManager.redo();
       },
       createToolbar() {
         /**
@@ -357,14 +564,14 @@
   .leftDragWindows {
     width: 5%;
     height: 100%;
-    border: 1px solid red
+    border: 1px solid red;
   }
 
   .centerExhibition {
     width: 75%;
     height: 100%;
     border: 1px solid blue;
-    background-image: url('../assets/grid.gif');
+    /* background-image: url("../assets/grid.gif"); */
     overflow: auto;
   }
 
