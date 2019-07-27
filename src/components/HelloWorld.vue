@@ -61,10 +61,12 @@
     mxPoint,
     mxEvent,
     mxStencil,
+    mxEdgeStyle,
     mxCodec,
     mxEditor,
     mxForm,
     mxConstants,
+    mxPerimeter,
     mxImage,
     mxConnectionHandler,
     mxGeometry,
@@ -104,7 +106,7 @@
         var model = new mxGraphModel();
         // 创建图形
         var graph = new mxGraph(this.$refs.graph_container, model);
-
+        this.styleY(graph)
         // 禁用选中图标进行连线
         // graph.panningHandler.ignoreCell = true;
 
@@ -194,14 +196,26 @@
         // 点击事件
         graph.addListener(mxEvent.CLICK, function (sender, evt) {
           let getId = evt['properties']['cell'] ? evt['properties']['cell']['id'] : null;
+          let edge = evt['properties']['cell'] ? evt['properties']['cell']['edge'] : false;
+
+          // 判断是否是线条，则不进行数据获取
+          if (edge) {
+            console.log('是线条');
+            return
+          } else {
+            // 创建图形以及数据清空等操作
+            console.log('不是线条');
+          }
+
+          // 单独点击窗体的情况，没有id的情况
           if (!getId) {
             return
           }
+          // 获取数据等填充数据等操作
           console.log(getId);
         });
         // Defines a new export action
         editor.addAction('properties', (editor, cell) => {
-          console.log('顶部菜单');
           if (cell == null) {
             cell = this.graph.getSelectionCell();
           }
@@ -237,6 +251,72 @@
           graph.getModel().endUpdate();
         }
       },
+      styleY(graph) {
+        // 创建图形样式
+        var style = graph.getStylesheet().getDefaultVertexStyle();
+        style[mxConstants.STYLE_FONTSIZE] = 11;
+        style[mxConstants.STYLE_FONTCOLOR] = 'black';
+        style[mxConstants.STYLE_STROKECOLOR] = '#808080';
+        style[mxConstants.STYLE_FILLCOLOR] = 'white';
+        style[mxConstants.STYLE_GRADIENTCOLOR] = 'white';
+        style[mxConstants.STYLE_GRADIENT_DIRECTION] = mxConstants.DIRECTION_EAST;
+        style[mxConstants.STYLE_ROUNDED] = true;
+        style[mxConstants.STYLE_SHADOW] = true;
+        style[mxConstants.STYLE_FONTSTYLE] = 1;
+
+        style = graph.getStylesheet().getDefaultEdgeStyle();
+        style[mxConstants.STYLE_EDGE] = mxEdgeStyle.ElbowConnector;
+        style[mxConstants.STYLE_STROKECOLOR] = '#808080';
+        style[mxConstants.STYLE_ROUNDED] = true;
+        style[mxConstants.STYLE_SHADOW] = true;
+
+        style = [];
+        style[mxConstants.STYLE_SHAPE] = mxConstants.SHAPE_SWIMLANE;
+        style[mxConstants.STYLE_PERIMETER] = mxPerimeter.RectanglePerimeter;
+        style[mxConstants.STYLE_STROKECOLOR] = '#a0a0a0';
+        style[mxConstants.STYLE_FONTCOLOR] = '#606060';
+        style[mxConstants.STYLE_FILLCOLOR] = '#E0E0DF';
+        style[mxConstants.STYLE_GRADIENTCOLOR] = 'white';
+        style[mxConstants.STYLE_STARTSIZE] = 30;
+        style[mxConstants.STYLE_ROUNDED] = false;
+        style[mxConstants.STYLE_FONTSIZE] = 12;
+        style[mxConstants.STYLE_FONTSTYLE] = 0;
+        style[mxConstants.STYLE_HORIZONTAL] = false;
+        // To improve text quality for vertical labels in some old IE versions...
+        style[mxConstants.STYLE_LABEL_BACKGROUNDCOLOR] = '#efefef';
+
+        graph.getStylesheet().putCellStyle('swimlane', style);
+
+        style = [];
+        style[mxConstants.STYLE_SHAPE] = mxConstants.SHAPE_RHOMBUS;
+        style[mxConstants.STYLE_PERIMETER] = mxPerimeter.RhombusPerimeter;
+        style[mxConstants.STYLE_STROKECOLOR] = '#91BCC0';
+        style[mxConstants.STYLE_FONTCOLOR] = 'gray';
+        style[mxConstants.STYLE_FILLCOLOR] = '#91BCC0';
+        style[mxConstants.STYLE_GRADIENTCOLOR] = 'white';
+        style[mxConstants.STYLE_ALIGN] = mxConstants.ALIGN_CENTER;
+        style[mxConstants.STYLE_VERTICAL_ALIGN] = mxConstants.ALIGN_MIDDLE;
+        style[mxConstants.STYLE_FONTSIZE] = 16;
+        graph.getStylesheet().putCellStyle('step', style);
+
+        style = [];
+        style[mxConstants.STYLE_SHAPE] = mxConstants.SHAPE_ELLIPSE;
+        style[mxConstants.STYLE_PERIMETER] = mxPerimeter.EllipsePerimeter;
+        style[mxConstants.STYLE_FONTCOLOR] = 'gray';
+        style[mxConstants.STYLE_FILLCOLOR] = '#A0C88F';
+        style[mxConstants.STYLE_GRADIENTCOLOR] = 'white';
+        style[mxConstants.STYLE_STROKECOLOR] = '#A0C88F';
+        style[mxConstants.STYLE_ALIGN] = mxConstants.ALIGN_CENTER;
+        style[mxConstants.STYLE_VERTICAL_ALIGN] = mxConstants.ALIGN_MIDDLE;
+        style[mxConstants.STYLE_FONTSIZE] = 16;
+        graph.getStylesheet().putCellStyle('start', style);
+
+        style = mxUtils.clone(style);
+        style[mxConstants.STYLE_FILLCOLOR] = '#DACCBC';
+        style[mxConstants.STYLE_STROKECOLOR] = '#AF7F73';
+        graph.getStylesheet().putCellStyle('end', style);
+
+      },
       createPopupMenu(editor, graph, menu, cell, evt) {
         // 右键单击创建窗体
 
@@ -266,58 +346,45 @@
       },
       dynamicLoadXml() {
         // 动态加载图形
-        let graph = this.graph;
-        graph.getModel().beginUpdate();
-        try {
-          var req = mxUtils.load('../assets/stencils.xml');
-          var root = req.getDocumentElement();
-          var dec = new mxCodec(root);
-          dec.decode(root, graph.getModel());
+        var graph = new mxGraph(this.$refs.graph_container);
+        console.log(graph);
+        graph.resizeContainer = true;
+        graph.setEnabled(false);
 
-        } finally {
-          graph.getModel().endUpdate();
-        }
+        var xml =
+          '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="Hello," vertex="1" parent="1"><mxGeometry x="20" y="20" width="80" height="30" as="geometry"/></mxCell><mxCell id="3" value="World!" vertex="1" parent="1"><mxGeometry x="200" y="150" width="80" height="30" as="geometry"/></mxCell><mxCell id="4" value="" edge="1" parent="1" source="2" target="3"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel>';
+        var doc = mxUtils.parseXml(xml);
+        var codec = new mxCodec(doc);
+        console.log(codec);
+        codec.decode(doc.documentElement, graph.getModel());
+
       },
       showProperties(graph, cell) {
         // 右键展示表格数据
         // Creates a form for the user object inside
         // the cell
         console.log(cell);
+        let edge = cell['edge'] ? cell['edge'] : false;
+        console.log(edge);
+        if (edge) {
+          console.log('线条');
+        } else {
+          console.log('不是线条');
+        }
+
         var form = new mxForm('properties');
         // Adds a field for the columnname
         var nameField = form.addText('Name', cell.value);
-        // var typeField = form.addText('Type', cell.value.type);
 
-        // var primaryKeyField = form.addCheckbox('Primary Key', cell.value.primaryKey);
-        // var autoIncrementField = form.addCheckbox('Auto Increment', cell.value.autoIncrement);
-        // var notNullField = form.addCheckbox('Not Null', cell.value.notNull);
-        // var uniqueField = form.addCheckbox('Unique', cell.value.unique);
-
-        // var defaultField = form.addText('Default', cell.value.defaultValue || '');
-        // var useDefaultField = form.addCheckbox('Use Default', (cell.value.defaultValue != null));
 
         var wnd = null;
 
-        // Defines the function to be executed when the
-        // OK button is pressed in the dialog
         var okFunction = function () {
           var clone = cell.value.clone();
 
           clone.name = nameField.value;
           clone.type = typeField.value;
 
-          // if (useDefaultField.checked) {
-          //   clone.defaultValue = defaultField.value;
-          // } else {
-          //   clone.defaultValue = null;
-          // }
-
-          // clone.primaryKey = primaryKeyField.checked;
-          // clone.autoIncrement = autoIncrementField.checked;
-          // clone.notNull = notNullField.checked;
-          // clone.unique = uniqueField.checked;
-
-          // graph.model.setValue(cell, clone);
 
           wnd.destroy();
         }

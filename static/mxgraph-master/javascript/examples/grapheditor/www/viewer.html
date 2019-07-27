@@ -29,7 +29,6 @@
 					}
 				}
 			}
-			
 			return result;
 		})(window.location.href);
 
@@ -40,13 +39,12 @@
 		// files (the special bundle and the default bundle) is disabled to
 		// save a GET request. This requires that all resources be present in
 		// each properties file since only one file is loaded.
+		
+		console.log(urlParams);
 		var mxLoadResources = false;
 		var mxBasePath = '../../../src';
 	</script>
-	<script type="text/javascript" src="sanitizer/sanitizer.min.js"></script>
 	<script type="text/javascript" src="../../../src/js/mxClient.js"></script>
-	<script type="text/javascript" src="js/Graph.js"></script>
-	<script type="text/javascript" src="js/Shapes.js"></script>
 </head>
 <body class="geEditor">
 	Input:
@@ -56,7 +54,7 @@
 	<button onclick="show(document.getElementById('textarea').value);return false;">Show</button>
 	<div id="graph"></div>
 	<script type="text/javascript">
-		var graph = new Graph(document.getElementById('graph'));
+		var graph = new mxGraph(document.getElementById('graph'));
 		graph.resizeContainer = true;
 		graph.setEnabled(false);
 
@@ -64,6 +62,7 @@
 		{
 			var xmlDoc = mxUtils.parseXml(data);
 			var codec = new mxCodec(xmlDoc);
+			console.log(codec);
 			codec.decode(xmlDoc.documentElement, graph.getModel());
 		};
 	</script>
