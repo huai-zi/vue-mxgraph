@@ -37,6 +37,11 @@
         <p>
           <button @click='dynamicLoadXml'>动态加载图形</button>
         </p>
+        <span id="errorT">
+
+        </span>
+        <p v-show='valuesTypes'> aaa:<input type="text" class="aaa" v-model='values.aaa'><br>
+          ccc:<input type="text" class="ccc" v-model='values.ccc'></p>
       </div>
     </div>
   </div>
@@ -44,8 +49,6 @@
 
 <script>
   import myClass from '@/util'
-  import 'mxgraph/javascript/src/css/common.css'
-  import 'mxgraph/javascript/src/css/explorer.css'
   import dqKeys from '@/util/keyCodeComponent'
 
   import {
@@ -64,6 +67,7 @@
     mxEdgeStyle,
     mxCodec,
     mxEditor,
+    mxKeyHandler,
     mxForm,
     mxConstants,
     mxPerimeter,
@@ -80,6 +84,11 @@
       return {
         msg: 'vue-mxgraph',
         graph: '',
+        valuesTypes: false,
+        values: {
+          aaa: '',
+          ccc: ''
+        },
         undoManager: ''
       }
     },
@@ -116,10 +125,16 @@
 
         // 禁止在图标上进行窗口拖动，左键选中，右键拖动窗口
         // graph.setCellsMovable(false);
-        graph.setAutoSizeCells(true);
+
+        // 设置自适应尺寸
+        // graph.setAutoSizeCells(true);
+
+        // graph.setEnabled(false); //设置启用,就是允不允许你改变CELL的形状内容。
+        // graph.setPanning(true); //移动镜头
+
+
         // 支持无限拖动
         graph.setPanning(true);
-
 
         // 目标支持宽度
         graph.scrollTileSize = new mxRectangle(0, 0, document.body.scrollWidth, 800);
@@ -138,9 +153,22 @@
 
         // 开启更新事务
         graph.getModel().beginUpdate();
+
+        // 创建有树形的图形
+        var doc = mxUtils.createXmlDocument();
+        var person1 = doc.createElement('Person');
+        person1.setAttribute('firstName', 'Daffy');
+        person1.setAttribute('lastName', 'Duck');
+
+
+        var person2 = doc.createElement('Person');
+        person2.setAttribute('firstName', '');
+        person2.setAttribute('lastName', '');
+        person2.setAttribute('ace', '');
+
         try {
-          var v1 = graph.insertVertex(parent, null, 'Hello,', 20, 20, 80, 30);
-          var v2 = graph.insertVertex(parent, null, 'World!', 200, 150, 80, 30);
+          var v1 = graph.insertVertex(parent, null, person1, 20, 20, 80, 30);
+          var v2 = graph.insertVertex(parent, null, person2, 200, 150, 80, 30);
           var e1 = graph.insertEdge(parent, null, '', v1, v2);
         } finally {
           // 结束更新事务
@@ -194,26 +222,114 @@
         };
 
         // 点击事件
+        // graph.addListener(mxEvent.CLICK, (sender, evt) => {
+
+        //   let getId = evt['properties']['cell'] ? evt['properties']['cell']['id'] : null;
+        //   let edge = evt['properties']['cell'] ? evt['properties']['cell']['edge'] : false;
+        //   // 判断是否是线条，则不进行数据获取
+        //   if (edge) {
+        //     console.log('是线条');
+        //     return
+        //   } else {
+        //     // 创建图形以及数据清空等操作
+        //     console.log('不是线条');
+        //   }
+        //   console.log(evt['properties']['cell']);
+        //   // 单独点击窗体的情况，没有id的情况
+        //   if (!getId) {
+        //     return
+        //   }
+        //   // 获取数据等填充数据等操作
+        //   console.log(getId);
+        // });
+
+        // 改变事件
+
+        // Optional disabling of sizing
+        graph.setCellsResizable(false);
+
+        graph.minimumContainerSize = new mxRectangle(0, 0, document.body.scrollWidth, 800);
+        graph.setBorder(60);
+
+        // Stops editing on enter key, handles escape
+        new mxKeyHandler(graph);
+
+        // Overrides method to disallow edge label editing
+        graph.isCellEditable = function (cell) {
+          return !this.getModel().isEdge(cell);
+        };
+
+        // Overrides method to provide a cell label in the display
+        graph.convertValueToString = function (cell) {
+          console.log('cell :', cell);
+          console.log(cell.getValue());
+          console.log(1);
+          if (!mxUtils.isNode(cell.value)) {
+            if (cell.value.nodeName.toLowerCase() == 'person') {
+              var firstName = cell.getAttribute('firstName', '');
+              var lastName = cell.getAttribute('lastName', '');
+
+              if (lastName != null && lastName.length > 0) {
+                return lastName + ', ' + firstName;
+              }
+
+              return firstName;
+            } else if (cell.value.nodeName.toLowerCase() == 'knows') {
+              return cell.value.nodeName + ' (Since ' +
+                cell.getAttribute('since', '') + ')';
+            }
+
+          }
+
+          return cell.getValue();
+        };
+
+        // Overrides method to store a cell label in the model
+        var cellLabelChanged = graph.cellLabelChanged;
+        graph.cellLabelChanged = function (cell, newValue, autoSize) {
+          console.log(2);
+          if (mxUtils.isNode(cell.value) &&
+            cell.value.nodeName.toLowerCase() == 'person') {
+            var pos = newValue.indexOf(' ');
+
+            var firstName = (pos > 0) ? newValue.substring(0,
+              pos) : newValue;
+            var lastName = (pos > 0) ? newValue.substring(
+              pos + 1, newValue.length) : '';
+
+            // Clones the value for correct undo/redo
+            var elt = cell.value.cloneNode(true);
+
+            newValue = elt;
+
+            //是否开启内容自适应
+            autoSize = false;
+          }
+          console.log(arguments);
+          cellLabelChanged.apply(this, arguments);
+        };
+
+        // Overrides method to create the editing value
+        var getEditingValue = graph.getEditingValue;
+        graph.getEditingValue = function (cell) {
+          console.log(3);
+          if (mxUtils.isNode(cell.value) &&
+            cell.value.nodeName.toLowerCase() == 'person') {
+            var firstName = cell.getAttribute('firstName', '');
+            var lastName = cell.getAttribute('lastName', '');
+
+            return firstName + ' ' + lastName;
+          }
+        };
+
+        var cell;
+        let _this = this;
         graph.addListener(mxEvent.CLICK, function (sender, evt) {
-          let getId = evt['properties']['cell'] ? evt['properties']['cell']['id'] : null;
-          let edge = evt['properties']['cell'] ? evt['properties']['cell']['edge'] : false;
-
-          // 判断是否是线条，则不进行数据获取
-          if (edge) {
-            console.log('是线条');
-            return
-          } else {
-            // 创建图形以及数据清空等操作
-            console.log('不是线条');
-          }
-
-          // 单独点击窗体的情况，没有id的情况
-          if (!getId) {
-            return
-          }
-          // 获取数据等填充数据等操作
-          console.log(getId);
+          _this.selectionChanged(_this.graph);
         });
+
+        this.selectionChanged(_this.graph);
+
         // Defines a new export action
         editor.addAction('properties', (editor, cell) => {
           if (cell == null) {
@@ -222,6 +338,118 @@
 
           this.showProperties(this.graph, cell);
         });
+      },
+      selectionChanged(graph) {
+        // 选择图形，改变数据进行填充
+        var div = document.getElementById('errorT');
+        // Forces focusout in IE
+        graph.container.focus();
+
+        // Clears the DIV the non-DOM way
+        div.innerHTML = '';
+
+        // Gets the selection cell
+
+        var cell = graph.getSelectionCell();
+        // 方法graph.view.getState获取图形样式的基本属性
+        // graph.view.getState(cell)
+        console.log(cell);
+
+        if (cell == null) {
+          // 失去焦点，关闭窗口
+          mxUtils.writeln(div, 'Nothing selected.');
+          this.valuesTypes = false;
+          this.values.aaa = ''
+          this.values.ccc = ''
+
+        } else {
+          // Writes the title
+          console.log(cell);
+          var center = document.createElement('center');
+
+          mxUtils.writeln(center, cell.value.nodeName + ' (' + cell.id + ')');
+          div.appendChild(center);
+          mxUtils.br(div);
+
+          // Creates the form from the attributes of the user object
+          var form = new mxForm();
+          //表格数据值  
+          var attrs = cell.value.attributes;
+          console.log(attrs);
+          this.valuesTypes = true;
+
+          for (var i = 0; i < attrs.length; i++) {
+            this.createTextField(graph, form, cell, attrs[i]);
+          }
+
+          div.appendChild(form.getTable());
+          mxUtils.br(div);
+        }
+      },
+      createTextField(graph, form, cell, attribute) {
+        var input = form.addText(attribute.nodeName + ':', attribute.nodeValue);
+
+        var applyHandler = function () {
+          var newValue = input.value || '';
+          var oldValue = cell.getAttribute(attribute.nodeName, '');
+
+          if (newValue != oldValue) {
+            graph.getModel().beginUpdate();
+
+            try {
+              var edit = new mxCellAttributeChange(
+                cell, attribute.nodeName,
+                newValue);
+              graph.getModel().execute(edit);
+              graph.updateCellSize(cell);
+            } finally {
+              graph.getModel().endUpdate();
+            }
+          }
+        };
+
+        mxEvent.addListener(input, 'keypress', function (evt) {
+          // Needs to take shift into account for textareas
+          if (evt.keyCode == /*enter*/ 13 &&
+            !mxEvent.isShiftDown(evt)) {
+            input.blur();
+          }
+        });
+
+        if (mxClient.IS_IE) {
+          mxEvent.addListener(input, 'focusout', applyHandler);
+        } else {
+          mxEvent.addListener(input, 'blur', applyHandler);
+        }
+      },
+      read(graph, filename) {
+
+        var req = mxUtils.load(filename);
+        var root = req.getDocumentElement();
+        console.log(root);
+        var dec = new mxCodec(root.ownerDocument);
+
+        dec.decode(root, graph.getModel());
+
+      },
+      dynamicLoadXml() {
+        // 动态加载图形
+        let graph = this.graph;
+
+        var xmlDoc = mxUtils.parseXml(
+          '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><Person firstName="Daffy" lastName="Duck" id="2"><mxCell vertex="1" parent="1"><mxGeometry x="20" y="20" width="80" height="30" as="geometry"/></mxCell></Person><Person huaiziyayay="" lastName="" ace="" id="3"><mxCell vertex="1" parent="1"><mxGeometry x="200" y="150" width="80" height="30" as="geometry"/></mxCell></Person><mxCell id="4" value="" edge="1" parent="1" source="2" target="3"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel>'
+        );
+        var codec = new mxCodec(xmlDoc);
+        console.log(codec);
+        codec.decode(xmlDoc.documentElement, graph.getModel());
+        this.selectCell(graph);
+      },
+      selectCell(graph) {
+        // 图形居中
+        graph.fit(); //自适应
+        // graph.center(true, true, 0.5, 0.5); //将画布放到容器中间
+        var sc = graph.getView().getScale(); //获取当前的缩放比例
+        graph.zoomTo(Math.round(sc / 2)); //在缩放一半，否则是满屏状态，不好看
       },
       editColor() {
         // 创建图形
@@ -234,9 +462,9 @@
 
         // 控制鼠标多选
         // // 设置可以连接属性
-        // graph.setConnectable(true);
+        graph.setConnectable(true);
         // // 设置多重图
-        // graph.setMultigraph(false);
+        graph.setMultigraph(false);
 
         // 开启更新事务
         graph.getModel().beginUpdate();
@@ -321,43 +549,14 @@
         // 右键单击创建窗体
 
         if (cell != null) {
-          if (graph.isHtmlLabel(cell)) {
-            menu.addItem('菜单栏1', require('../assets/rectangle.gif'), function () {
-              editor.execute('properties', cell);
-            });
 
-            menu.addSeparator();
-          }
-
-          menu.addItem('菜单栏1', require('../assets/rectangle.gif'), function () {
-            editor.execute('properties', cell);
-          });
-          menu.addItem('删除', require('../assets/delete2.png'), () => {
-            this.deleteLine()
+          menu.addItem('重命名', require('../assets/delete2.png'), (sender) => {
+            console.log('重名');
+            console.log(sender);
           });
 
-          menu.addSeparator();
+          // menu.addSeparator();
         }
-
-        // 场景页面数据
-        menu.addItem('场景页面', require('../assets/connector.gif'), function () {
-          editor.execute('showSql', cell);
-        });
-      },
-      dynamicLoadXml() {
-        // 动态加载图形
-        var graph = new mxGraph(this.$refs.graph_container);
-        console.log(graph);
-        graph.resizeContainer = true;
-        graph.setEnabled(false);
-
-        var xml =
-          '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="Hello," vertex="1" parent="1"><mxGeometry x="20" y="20" width="80" height="30" as="geometry"/></mxCell><mxCell id="3" value="World!" vertex="1" parent="1"><mxGeometry x="200" y="150" width="80" height="30" as="geometry"/></mxCell><mxCell id="4" value="" edge="1" parent="1" source="2" target="3"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel>';
-        var doc = mxUtils.parseXml(xml);
-        var codec = new mxCodec(doc);
-        console.log(codec);
-        codec.decode(doc.documentElement, graph.getModel());
-
       },
       showProperties(graph, cell) {
         // 右键展示表格数据
@@ -384,7 +583,6 @@
 
           clone.name = nameField.value;
           clone.type = typeField.value;
-
 
           wnd.destroy();
         }
@@ -439,47 +637,64 @@
         this.addVertex(require('../assets/rectangle.gif'), 200, 200, '');
       },
       addVertex(icon, w, h, style) {
-        // 宽高，指的是，拉出来后图形的大小
+        /**
+         * 宽高，指的是，拉出来后图形的大小
+         * @param {String} icon 图标展示
+         * @param {Number} w 高度
+         * @param {Number} h 高度
+         * @param {String} style 样式
+         */
 
         var toolbar = new mxToolbar(this.$refs.leftDragWindows);
         toolbar.enabled = false
-        var vertex = new mxCell(null, new mxGeometry(0, 0, w, h), style);
+
+        // 动态数据类型，创建person
+        var doc = mxUtils.createXmlDocument();
+        var person2 = doc.createElement('Person');
+        person2.setAttribute('firstName', '');
+        person2.setAttribute('lastName', '');
+        person2.setAttribute('ace', '');
+
+        /**
+         * 拖拽出保存图形 new mxCell()实例解析
+         * 第一个参数，创建自定义属性值
+         */
+        var vertex = new mxCell(person2, new mxGeometry(0, 0, w, h), style);
+
         vertex.setVertex(true);
 
         var img = this.addToolbarItem(this.graph, toolbar, vertex, icon);
         img.enabled = true;
 
         // 图标拖动到场景内，进行激活
-        this.graph.getSelectionModel().addListener(mxEvent.CHANGE, () => {
+        this.graph.getSelectionModel().addListener(mxEvent.CHANGE, (sender, evt) => {
           var tmp = this.graph.isSelectionEmpty();
-
-          // 拖动图标，编辑状态下，图标变灰
+          // 拖动图标，编辑状态下，图标状态栏变灰
           // mxUtils.setOpacity(img, (tmp) ? 100 : 20);
           img.enabled = tmp;
         });
       },
       addToolbarItem(graph, toolbar, prototype, image) {
         // 绘制img图形
-        //删除图像时执行的函数
-
-        //图表。cell参数指向下面的单元格
 
         //鼠标指针（如果有）
         var funct = function (graph, evt, cell, x, y) {
           graph.stopEditing(false);
-
           var vertex = graph.getModel().cloneCell(prototype);
           vertex.geometry.x = x;
           vertex.geometry.y = y;
-
+          console.log(vertex);
+          // 追加到图形展示区域
           graph.addCell(vertex);
-          graph.setSelectionCell(vertex);
+          // 创建后选中焦点
+          // graph.setSelectionCell(vertex);
         }
 
         // 创建用作拖动图标的图像（预览）
-        var img = toolbar.addMode(null, image, function (evt, cell) {
+        var img = toolbar.addMode(null, image, (evt, cell) => {
           var pt = this.graph.getPointForEvent(evt);
-          funct(graph, evt, cell, pt.x, pt.y);
+
+          This.funct(graph, evt, cell, pt.x, pt.y);
         });
 
         // Disables dragging if element is disabled. This is a workaround
