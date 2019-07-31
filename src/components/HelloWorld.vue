@@ -322,6 +322,7 @@
         };
 
         var cell;
+        
         let _this = this;
         graph.addListener(mxEvent.CLICK, function (sender, evt) {
           cell = evt.getProperty('cell')
