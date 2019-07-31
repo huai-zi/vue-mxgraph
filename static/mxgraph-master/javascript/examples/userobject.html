@@ -52,8 +52,7 @@
         // Optional disabling of sizing
         graph.setCellsResizable(false);
 
-        // Configures the graph contains to resize and
-        // add a border at the bottom, right
+        // 超出部门，添加边框，消除滚动条
         graph.setResizeContainer(true);
         graph.minimumContainerSize = new mxRectangle(0, 0, 500, 380);
         graph.setBorder(60);
@@ -65,11 +64,11 @@
         graph.isCellEditable = function (cell) {
           return !this.getModel().isEdge(cell);
         };
-
         // Overrides method to provide a cell label in the display
         graph.convertValueToString = function (cell) {
-			console.log(1);
+          console.log(1);
           if (mxUtils.isNode(cell.value)) {
+            console.log(9);
             if (cell.value.nodeName.toLowerCase() == 'person') {
               var firstName = cell.getAttribute('firstName', '');
               var lastName = cell.getAttribute('lastName', '');
@@ -92,7 +91,7 @@
         // Overrides method to store a cell label in the model
         var cellLabelChanged = graph.cellLabelChanged;
         graph.cellLabelChanged = function (cell, newValue, autoSize) {
-			console.log(2);
+          console.log(2);
           if (mxUtils.isNode(cell.value) &&
             cell.value.nodeName.toLowerCase() == 'person') {
             var pos = newValue.indexOf(' ');
@@ -117,7 +116,7 @@
         // Overrides method to create the editing value
         var getEditingValue = graph.getEditingValue;
         graph.getEditingValue = function (cell) {
-			console.log(3);
+          console.log(3);
           if (mxUtils.isNode(cell.value) &&
             cell.value.nodeName.toLowerCase() == 'person') {
             var firstName = cell.getAttribute('firstName', '');
@@ -211,7 +210,7 @@
 
         // Gets the selection cell
         var cell = graph.getSelectionCell();
-		console.log(cell);
+        console.log(cell);
         if (cell == null) {
           mxUtils.writeln(div, 'Nothing selected.');
         } else {
@@ -243,7 +242,7 @@
         var applyHandler = function () {
           var newValue = input.value || '';
           var oldValue = cell.getAttribute(attribute.nodeName, '');
-			console.log('newValue', newValue)
+          console.log('newValue', newValue)
           if (newValue != oldValue) {
             graph.getModel().beginUpdate();
 

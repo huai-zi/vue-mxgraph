@@ -4,9 +4,8 @@ import Vue from 'vue'
 import App from './App'
 import router from './router'
 
-import 'mxgraph/javascript/src/css/common.css'
-import 'mxgraph/javascript/src/css/explorer.css'
-
+require('./assets/css/common.css')
+require('./assets/css/explorer.css')
 Vue.config.productionTip = false
 
 /* eslint-disable no-new */

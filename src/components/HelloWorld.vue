@@ -42,6 +42,8 @@
         </span>
         <p v-show='valuesTypes'> aaa:<input type="text" class="aaa" v-model='values.aaa'><br>
           ccc:<input type="text" class="ccc" v-model='values.ccc'></p>
+        <p v-show='resetName'>重命名：<input type="text" v-model='cellValue' @blur='cellBlur'></p>
+
       </div>
     </div>
   </div>
@@ -84,7 +86,10 @@
       return {
         msg: 'vue-mxgraph',
         graph: '',
+        cellValue: '',
+        cellNode: '',
         valuesTypes: false,
+        resetName: false,
         values: {
           aaa: '',
           ccc: ''
@@ -142,6 +147,7 @@
         graph.dropEnabled = true;
         this.graph = graph;
         graph.setConnectable(true);
+
         // 控制鼠标多选
         var rubberband = new mxRubberband(graph);
 
@@ -245,8 +251,16 @@
 
         // 改变事件
 
-        // Optional disabling of sizing
-        graph.setCellsResizable(false);
+        //禁用节点双击，禁止改变cell中的值
+        graph.dblClick = function (evt, cell) {
+          var model = graph.getModel();
+          if (model.isVertex(cell)) {
+            return false;
+          }
+        };
+
+        // 禁止改变元素大小
+        // graph.setCellsResizable(false);
 
         graph.minimumContainerSize = new mxRectangle(0, 0, document.body.scrollWidth, 800);
         graph.setBorder(60);
@@ -254,40 +268,28 @@
         // Stops editing on enter key, handles escape
         new mxKeyHandler(graph);
 
-        // Overrides method to disallow edge label editing
+        // 禁止边框编辑
         graph.isCellEditable = function (cell) {
           return !this.getModel().isEdge(cell);
         };
 
-        // Overrides method to provide a cell label in the display
+        // 提供一个在显示屏上的单元格标签
         graph.convertValueToString = function (cell) {
           console.log('cell :', cell);
-          console.log(cell.getValue());
-          console.log(1);
-          if (!mxUtils.isNode(cell.value)) {
+          console.log(cell.getStyle());
+          if (mxUtils.isNode(cell.value)) {
             if (cell.value.nodeName.toLowerCase() == 'person') {
-              var firstName = cell.getAttribute('firstName', '');
-              var lastName = cell.getAttribute('lastName', '');
-
-              if (lastName != null && lastName.length > 0) {
-                return lastName + ', ' + firstName;
-              }
-
-              return firstName;
-            } else if (cell.value.nodeName.toLowerCase() == 'knows') {
-              return cell.value.nodeName + ' (Since ' +
-                cell.getAttribute('since', '') + ')';
+              let nodeName = cell.getValue().getAttribute('nodeName')
+              nodeName ? nodeName : '...';
+              return nodeName
             }
-
           }
-
-          return cell.getValue();
+          return cell.value ? cell.value.nodeName : '';
         };
 
-        // Overrides method to store a cell label in the model
+        //  存储在模型中的单元格标签，双击修改cell内容进行激活
         var cellLabelChanged = graph.cellLabelChanged;
         graph.cellLabelChanged = function (cell, newValue, autoSize) {
-          console.log(2);
           if (mxUtils.isNode(cell.value) &&
             cell.value.nodeName.toLowerCase() == 'person') {
             var pos = newValue.indexOf(' ');
@@ -299,17 +301,14 @@
 
             // Clones the value for correct undo/redo
             var elt = cell.value.cloneNode(true);
-
             newValue = elt;
-
             //是否开启内容自适应
-            autoSize = false;
+            // autoSize = false;
           }
-          console.log(arguments);
           cellLabelChanged.apply(this, arguments);
         };
 
-        // Overrides method to create the editing value
+        // 显示编辑值
         var getEditingValue = graph.getEditingValue;
         graph.getEditingValue = function (cell) {
           console.log(3);
@@ -325,21 +324,46 @@
         var cell;
         let _this = this;
         graph.addListener(mxEvent.CLICK, function (sender, evt) {
-          _this.selectionChanged(_this.graph);
+          cell = evt.getProperty('cell')
+          _this.selectionChanged(_this.graph, cell);
         });
 
-        this.selectionChanged(_this.graph);
+        this.selectionChanged(_this.graph, cell);
+
+        // 在边框上显示提示工具 
+        graph.setTooltips(true);
+        graph.getTooltipForCell = function (cell) {
+          if (mxUtils.isNode(cell.value)) {
+            if (cell.value.nodeName.toLowerCase() == 'person') {
+              let nodeName = cell.getValue().getAttribute('nodeName')
+              nodeName ? nodeName : '...';
+              return nodeName
+            }
+          }
+        }
 
         // Defines a new export action
         editor.addAction('properties', (editor, cell) => {
           if (cell == null) {
             cell = this.graph.getSelectionCell();
           }
-
           this.showProperties(this.graph, cell);
         });
+
       },
-      selectionChanged(graph) {
+      cellBlur(val) {
+        // 重命名
+        let cell = this.cellNode;
+        if (mxUtils.isNode(cell.value) &&
+          cell.value.nodeName.toLowerCase() == 'person') {
+          cell.getValue().setAttribute('nodeName', this.cellValue)
+        }
+
+        // 刷新面板Graph，否则看不到cell的删除效果
+        this.graph.refresh(cell);
+        this.resetName = false;
+      },
+      selectionChanged(graph, cell) {
         // 选择图形，改变数据进行填充
         var div = document.getElementById('errorT');
         // Forces focusout in IE
@@ -347,24 +371,22 @@
 
         // Clears the DIV the non-DOM way
         div.innerHTML = '';
-
         // Gets the selection cell
 
-        var cell = graph.getSelectionCell();
+        // var cell = graph.getSelectionCell();
         // 方法graph.view.getState获取图形样式的基本属性
         // graph.view.getState(cell)
         console.log(cell);
-
         if (cell == null) {
           // 失去焦点，关闭窗口
           mxUtils.writeln(div, 'Nothing selected.');
           this.valuesTypes = false;
+          this.resetName = false;
           this.values.aaa = ''
           this.values.ccc = ''
 
         } else {
           // Writes the title
-          console.log(cell);
           var center = document.createElement('center');
 
           mxUtils.writeln(center, cell.value.nodeName + ' (' + cell.id + ')');
@@ -437,7 +459,7 @@
         let graph = this.graph;
 
         var xmlDoc = mxUtils.parseXml(
-          '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><Person firstName="Daffy" lastName="Duck" id="2"><mxCell vertex="1" parent="1"><mxGeometry x="20" y="20" width="80" height="30" as="geometry"/></mxCell></Person><Person huaiziyayay="" lastName="" ace="" id="3"><mxCell vertex="1" parent="1"><mxGeometry x="200" y="150" width="80" height="30" as="geometry"/></mxCell></Person><mxCell id="4" value="" edge="1" parent="1" source="2" target="3"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel>'
+          '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><Person firstName="" lastName="" ace="" id="7"><mxCell style="style1" vertex="1" parent="1"><mxGeometry x="73.65625" y="1" width="60" height="60" as="geometry"/></mxCell></Person><mxCell id="8" style="style" vertex="1" parent="1"><Object nodeName="3333" firstName="12" lastName="99" as="value"/><mxGeometry x="294.65625" y="151" width="60" height="60" as="geometry"/></mxCell><mxCell id="9" edge="1" parent="1" source="7" target="8"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel>'
         );
         var codec = new mxCodec(xmlDoc);
         console.log(codec);
@@ -492,6 +514,7 @@
         style[mxConstants.STYLE_SHADOW] = true;
         style[mxConstants.STYLE_FONTSTYLE] = 1;
 
+        // cell线条节点样式
         style = graph.getStylesheet().getDefaultEdgeStyle();
         style[mxConstants.STYLE_EDGE] = mxEdgeStyle.ElbowConnector;
         style[mxConstants.STYLE_STROKECOLOR] = '#808080';
@@ -552,7 +575,8 @@
 
           menu.addItem('重命名', require('../assets/delete2.png'), (sender) => {
             console.log('重名');
-            console.log(sender);
+            this.cellNode = cell;
+            this.resetName = true;
           });
 
           // menu.addSeparator();
@@ -628,13 +652,34 @@
       },
       createToolbar() {
         /**
-         * 创建菜单栏
+         * 创建菜单栏，自定义菜单栏
          * 1.图形图标
          * 2.长
          * 3.宽
          * 4.图形形状，有则展示，无则显示图形图标
          */
-        this.addVertex(require('../assets/rectangle.gif'), 200, 200, '');
+
+        var style = this.graph.getStylesheet().getDefaultVertexStyle();
+        style[mxConstants.STYLE_SHAPE] = mxConstants.SHAPE_IMAGE;
+        style[mxConstants.STYLE_PERIMETER] = mxPerimeter.RectanglePerimeter;
+        style[mxConstants.STYLE_IMAGE] = require('../assets/delete2.png');
+        style[mxConstants.STYLE_IMAGE_WIDTH] = '38';
+        style[mxConstants.STYLE_IMAGE_HEIGHT] = '38';
+        style[mxConstants.STYLE_FONTCOLOR] = '#000000';
+        style[mxConstants.STYLE_ALIGN] = mxConstants.ALIGN_CENTER;
+        style[mxConstants.STYLE_SHADOW] = true;
+        style[mxConstants.STYLE_VERTICAL_LABEL_POSITION] = 'bottom';
+        style[mxConstants.STYLE_VERTICAL_ALIGN] = 'top';
+        this.graph.getStylesheet().putCellStyle('style', style);
+        // 通过给style创建样式，将参数数组进行传递展示
+        this.addVertex(require('../assets/delete2.png'), 60, 60, 'style');
+
+        let style1 = Object.assign({}, style);
+        style1['image'] = require('../assets/redo.png');
+        this.graph.getStylesheet().putCellStyle('style1', style1);
+        // 通过给style创建样式，将参数数组进行传递展示
+        this.addVertex(require('../assets/redo.png'), 60, 60, 'style1');
+
       },
       addVertex(icon, w, h, style) {
         /**
@@ -652,13 +697,18 @@
         var doc = mxUtils.createXmlDocument();
         var person2 = doc.createElement('Person');
         person2.setAttribute('firstName', '');
+        // 名称
+        person2.setAttribute('nodeName', '资源');
         person2.setAttribute('lastName', '');
         person2.setAttribute('ace', '');
 
         /**
          * 拖拽出保存图形 new mxCell()实例解析
-         * 第一个参数，创建自定义属性值
+         * 第一个参数，创建自定义属性值,cell的值
+         * 第二个参数：可选几何形状new mxGeometry(0, 0, w, h)
+         * 第三个参数：风格样式style
          */
+
         var vertex = new mxCell(person2, new mxGeometry(0, 0, w, h), style);
 
         vertex.setVertex(true);
@@ -680,6 +730,7 @@
         //鼠标指针（如果有）
         var funct = function (graph, evt, cell, x, y) {
           graph.stopEditing(false);
+          console.log(prototype);
           var vertex = graph.getModel().cloneCell(prototype);
           vertex.geometry.x = x;
           vertex.geometry.y = y;
