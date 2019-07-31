@@ -4,6 +4,7 @@ import Vue from 'vue'
 import App from './App'
 import router from './router'
 
+// mxgraph样式
 require('./assets/css/common.css')
 require('./assets/css/explorer.css')
 Vue.config.productionTip = false

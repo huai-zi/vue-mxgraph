@@ -327,7 +327,6 @@
           cell = evt.getProperty('cell')
           _this.selectionChanged(_this.graph, cell);
         });
-
         this.selectionChanged(_this.graph, cell);
 
         // 在边框上显示提示工具 
